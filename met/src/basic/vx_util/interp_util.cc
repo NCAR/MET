@@ -790,12 +790,20 @@ double interp_bilin(const DataPlane &dp, double obs_x, double obs_y,
    x = nint(floor(obs_x));
    y = nint(floor(obs_y));
 
+   ConcatString log_msg;
+   log_msg << "interp_bilin() -> "
+           << "obs(x,y) = (" << obs_x << "," << obs_y << ")\n";
+
    // Check the optional mask
    if(mp) {
       if(!(*mp)(x,   y  ) ||
          !(*mp)(x+1, y  ) ||
          !(*mp)(x,   y+1) ||
-         !(*mp)(x+1, y+1)) return(bad_data_double);
+         !(*mp)(x+1, y+1)) {
+         mlog << Debug(4) << log_msg
+              << "Skip because the mask is off for one of the corners!\n";
+         return(bad_data_double);
+      }
    }
 
    // Compute dx and dy
@@ -869,6 +877,13 @@ double interp_bilin(const DataPlane &dp, double obs_x, double obs_y,
                    wtne * dp.get(x+1, y+1);
       }
    }
+
+   mlog << Debug(4) << log_msg
+        << "SW (" << x   << "," << y   << ") wgt, val = " << wtsw << ", " << dp(x  ,y  ) << "\n"
+        << "SE (" << x+1 << "," << y   << ") wgt, val = " << wtse << ", " << dp(x+1,y  ) << "\n"
+        << "NW (" << x   << "," << y+1 << ") wgt, val = " << wtnw << ", " << dp(x  ,y+1) << "\n"
+        << "NE (" << x+1 << "," << y+1 << ") wgt, val = " << wtne << ", " << dp(x+1,y+1) << "\n"
+        << "bilin_v = " << bilin_v << "\n";
 
    return(bilin_v);
 }
