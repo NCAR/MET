@@ -606,6 +606,7 @@ class DMAPInfo {
       double baddeley_max_dist;    // Maximum distance constant
       double fom_alpha;            // FOM Alpha
       double zhu_weight;           // Zhu Weight
+      double beta_value;           // G-Beta Value
 
    public:
 
@@ -619,7 +620,7 @@ class DMAPInfo {
       SingleThresh othresh;
 
       // Counts
-      int total, fy, oy;
+      int total, fy, oy, foy;
 
       // Distance metrics
       double baddeley, hausdorff;
@@ -633,6 +634,9 @@ class DMAPInfo {
       // Zhu Metric
       double zhu_fo, zhu_of, zhu_min, zhu_max, zhu_mean;
 
+      // G and G-Beta
+      double g, gbeta;
+
       // Compute statistics
       double fbias() const; // fbias = fy / oy
 
@@ -642,11 +646,19 @@ class DMAPInfo {
                const NumArray &fthr_na,  const NumArray &othr_na);
 
       void set_options(const int _baddeley_p, const double _baddeley_max_dist,
-                       const double _fom_alpha, const double _zhu_weight);
+                       const double _fom_alpha, const double _zhu_weight,
+                       const double _beta_value);
+
+      // Get functions
+      double get_beta_value() const; 
 
       void clear();
       void reset_options();
 };
+
+////////////////////////////////////////////////////////////////////////
+
+inline double DMAPInfo::get_beta_value() const { return(beta_value); }
 
 ////////////////////////////////////////////////////////////////////////
 //

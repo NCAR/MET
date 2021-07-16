@@ -2738,11 +2738,12 @@ void DMAPInfo::clear() {
 
    fthresh.clear();
    othresh.clear();
-   total    = fy = oy = 0;
+   total    = fy = oy = foy = 0;
    baddeley = hausdorff = bad_data_double;
    med_fo   = med_of = med_min = med_max = med_mean = bad_data_double;
    fom_fo   = fom_of = fom_min = fom_max = fom_mean = bad_data_double;
    zhu_fo   = zhu_of = zhu_min = zhu_max = zhu_mean = bad_data_double;
+   g        = gbeta  = beta_value = bad_data_double;
 
    return;
 }
@@ -2750,10 +2751,11 @@ void DMAPInfo::clear() {
 ////////////////////////////////////////////////////////////////////////
 
 void DMAPInfo::reset_options() {
-   baddeley_p = 2;          // Exponent for lp-norm
-   baddeley_max_dist = 5.0; // Maximum distance constant
-   fom_alpha = 0.1;         // FOM Alpha
-   zhu_weight = 0.5;        // Zhu Weight
+   baddeley_p = 2;                      // Exponent for lp-norm
+   baddeley_max_dist = bad_data_double; // Maximum distance constant
+   fom_alpha = 0.1;                     // FOM Alpha
+   zhu_weight = 0.5;                    // Zhu Weight
+   beta_value = bad_data_double;        // G-Beta Value
 
    return;
 }
@@ -2770,6 +2772,7 @@ void DMAPInfo::assign(const DMAPInfo &c) {
    total = c.total;
    fy    = c.fy;
    oy    = c.oy;
+   foy   = c.foy;
 
    baddeley  = c.baddeley;
    hausdorff = c.hausdorff;
@@ -2792,10 +2795,14 @@ void DMAPInfo::assign(const DMAPInfo &c) {
    zhu_max  = c.zhu_max;
    zhu_mean = c.zhu_mean;
 
+   g     = c.g;
+   gbeta = c.gbeta;
+
    baddeley_p = c.baddeley_p;
    baddeley_max_dist = c.baddeley_max_dist;
    fom_alpha  = c.fom_alpha;
    zhu_weight = c.zhu_weight;
+   beta_value = c.beta_value;
 
    return;
 }
@@ -2812,7 +2819,7 @@ double DMAPInfo::fbias() const {
 }
 
 ////////////////////////////////////////////////////////////////////////
-
+   
 void DMAPInfo::set(const SingleThresh &fthr, const SingleThresh &othr,
                    const NumArray &fdmap_na, const NumArray &odmap_na,
                    const NumArray &fthr_na,  const NumArray &othr_na) {
@@ -2859,16 +2866,22 @@ void DMAPInfo::set(const SingleThresh &fthr, const SingleThresh &othr,
       if (is_bad_data(fdmap_na[i]) || is_bad_data(odmap_na[i]) ||
           is_bad_data(fthr_na[i])  || is_bad_data(othr_na[i])) continue;
 
+      // Forecast event
       if (fthr_na[i] > 0) {
          fy++;
          med_of_sum += odmap_na[i];
          fom_of_sum += 1 / (1 + odmap_na[i] * odmap_na[i] * fom_alpha);
       }
+
+      // Observation
       if (othr_na[i] > 0) {
          oy++;
          med_fo_sum += fdmap_na[i];
          fom_fo_sum += 1 / (1 + fdmap_na[i] * fdmap_na[i] * fom_alpha);
       }
+
+      // Forecast and observation event
+      if (fthr_na[i] > 0 && othr_na[i] > 0) foy++;
 
       sum_event_diff += (fthr_na[i] - othr_na[i]) * (fthr_na[i] - othr_na[i]);
 
@@ -2933,26 +2946,52 @@ void DMAPInfo::set(const SingleThresh &fthr, const SingleThresh &othr,
       zhu_mean = (zhu_fo + zhu_of) / 2;
    }
 
+   // G and G-Beta
+   // Reference:
+   //   Gilleland, E.: Novel measures for summarizing high-resolution forecast performance,
+   //     Adv. Stat. Clim. Meteorol. Oceanogr., 7, 13–34,
+   //     https://doi.org/10.5194/ascmo-7-13-2021, 2021.
+
+   // If not set by the user, default maximum distance to the number of pairs
+   double max_dist = (is_bad_data(baddeley_max_dist) ?
+                      (double) total : baddeley_max_dist);
+
+   double g_med_fo = (oy == 0 ? max_dist : med_fo);
+   double g_med_of = (fy == 0 ? max_dist : med_of);
+   int    g_y1     = fy + oy - 2 * foy;
+   double g_y2     = g_med_fo * oy + g_med_of * fy;
+   double g_y      = g_y1 * g_y2;
+   g               = pow(g_y, 1.0 / 3.0);
+
+   // If not set by the user, set beta_value as the number of pairs divided by 2
+   if(is_bad_data(beta_value)) beta_value = (double) total / 2.0;
+
+   gbeta           = max(1.0 - g_y / beta_value, 0.0);
+
    mlog << Debug(4) << " DMAP: nf=" << fy << ", no=" << oy << ", total=" << total
         << "\tbaddeley=" << baddeley << ", hausdorff=" << hausdorff
-        << "\n\tmed_fo=" << med_fo << ", med_of=" << med_of
-        << ", med_min=" << med_min << ", med_max=" << med_max << ", med_mean=" << med_mean
-        << "\n\tfom_fo=" << fom_fo << ", fom_of=" << fom_of
-        << ", fom_min=" << fom_min << ", fom_max=" << fom_max << ", fom_mean=" << fom_mean
-        << "\n\tzhu_fo=" << zhu_fo << ", zhu_of=" << zhu_of
-        << ", zhu_min=" << zhu_min << ", zhu_max=" << zhu_max << ", zhu_mean=" << zhu_mean
+        << "\n\tmed_fo=" << med_fo   << ", med_of="    << med_of
+        << ", med_min="  << med_min  << ", med_max="   << med_max << ", med_mean="   << med_mean
+        << "\n\tfom_fo=" << fom_fo   << ", fom_of="    << fom_of
+        << ", fom_min="  << fom_min  << ", fom_max="   << fom_max << ", fom_mean="   << fom_mean
+        << "\n\tzhu_fo=" << zhu_fo   << ", zhu_of="    << zhu_of
+        << ", zhu_min="  << zhu_min  << ", zhu_max="   << zhu_max << ", zhu_mean="   << zhu_mean
+        << "\n\tg="      << g        << ", gbeta="     << gbeta   << ", beta_value=" << beta_value
         << "\n";
+
    return;
 }
 
 ////////////////////////////////////////////////////////////////////////
 
 void DMAPInfo::set_options(const int _baddeley_p, const double _baddeley_max_dist,
-                           const double _fom_alpha, const double _zhu_weight) {
+                           const double _fom_alpha, const double _zhu_weight,
+                           const double _beta_value) {
    baddeley_p = _baddeley_p;
    baddeley_max_dist = _baddeley_max_dist;
    fom_alpha = _fom_alpha;
    zhu_weight = _zhu_weight;
+   beta_value = _beta_value;
 }
 
 ////////////////////////////////////////////////////////////////////////

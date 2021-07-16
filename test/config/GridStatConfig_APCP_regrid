@@ -150,6 +150,7 @@ distance_map = {
    baddeley_max_dist = NA;
    fom_alpha         = 0.1;
    zhu_weight        = 0.5;
+   beta_value        = NA;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

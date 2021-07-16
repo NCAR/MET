@@ -529,6 +529,12 @@ void GridStatVxOpt::clear() {
    grad_dx.clear();
    grad_dy.clear();
 
+   baddeley_p = bad_data_int;
+   baddeley_max_dist = bad_data_double;
+   fom_alpha = bad_data_double;
+   zhu_weight = bad_data_double;
+   beta_value = bad_data_double;
+
    hss_ec_value = bad_data_double;
    rank_corr_flag = false;
 
@@ -808,6 +814,14 @@ void GridStatVxOpt::process_config(
       mlog << Error << "\nGridStatVxOpt::process_config() -> "
            << "The \"" << conf_key_zhu_weight << "\" option ("
            << zhu_weight << ") must be set > 0 and <= 1.\n\n";
+      exit(1);
+   }
+
+   beta_value = d->lookup_double(conf_key_beta_value);
+   if(!is_bad_data(beta_value) && beta_value <=0) {
+      mlog << Error << "\nGridStatVxOpt::process_config() -> "
+           << "The \"" << conf_key_beta_value << "\" option ("
+           << beta_value << ") must be set > 0.\n\n";
       exit(1);
    }
 
